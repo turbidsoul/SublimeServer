@@ -191,9 +191,14 @@ class SublimeServer(BaseHTTPServer.BaseHTTPRequestHandler):
             <body>%s</body>
         </html>
         """ % (name, styles, mdhtml)
+        
+        new_view = self.view.window().new_file()
+        new_edit = new_view.begin_edit()
+        new_view.insert(new_edit, 0, html_contents)
+        new_view.end_edit(new_edit)
 
         converted_f = StringIO()
-        converted_f.write('html.decode("ascii").encode("utf-8")')
+        converted_f.write(html.encode('utf8'))
         converted_f.seek(0)
 
         fs = os.fstat(f.fileno())
