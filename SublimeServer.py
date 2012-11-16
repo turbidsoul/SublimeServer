@@ -1,4 +1,5 @@
-__version__ = "0.2.1"
+# coding: utf-8
+__version__ = "0.2.1_1"
 
 # SublimeServer Settings
 settings = None
@@ -25,6 +26,8 @@ import sys
 import shutil
 import mimetypes
 import time
+import markdown2
+
 try:
     from cStringIO import StringIO
 except ImportError:
@@ -44,6 +47,8 @@ def load_settings():
         '.py': 'text/plain',
         '.c': 'text/plain',
         '.h': 'text/plain',
+        '.md': 'text/html',
+        '.yaml': 'text/plain'
     }
     # default autorun
     defaultAutorun = False
@@ -142,6 +147,7 @@ class SublimeServer(BaseHTTPServer.BaseHTTPRequestHandler):
                 return self.list_directory(path)
 
         ctype = self.guess_type(path)
+        name, ext = posixpath.splitext(path);
         try:
             # Always read in binary mode. Opening files in text mode may cause
             # newline translations, making the actual size of the content
@@ -150,13 +156,58 @@ class SublimeServer(BaseHTTPServer.BaseHTTPRequestHandler):
         except IOError:
             self.send_error(404, "File not found")
             return None
-        self.send_response(200)
-        self.send_header("Content-type", ctype)
+        if not ext == '.md':
+            self.send_response(200)
+            self.send_header("Content-type", ctype)
+            fs = os.fstat(f.fileno())
+            self.send_header("Content-Length", str(fs[6]))
+            self.send_header("Last-Modified", self.date_time_string(fs.st_mtime))
+            self.end_headers()
+
+            return f
+
+        return self.md_convert(f, name, ext)
+
+    def md_convert(self, f, name, ext):
+        mdcontent = '';
+        for line in f:
+            mdcontent = mdcontent + line
+
+        try:
+            mdhtml = markdown2.markdown(mdcontent)
+            styles = self.getcss(theme='markdown')
+        except Exception, (value, message):
+            sublime.message_dialog(message)
+
+        html="""<!doctype html>
+        <html>
+            <head>
+                <meta charset='utf-8'>
+                <title>%s</title>
+                <style>
+                    %s
+                </style>
+            </head>
+            <body>%s</body>
+        </html>
+        """ % (name, styles, mdhtml)
+
+        converted_f = StringIO()
+        converted_f.write('html.decode("ascii").encode("utf-8")')
+        converted_f.seek(0)
+
         fs = os.fstat(f.fileno())
-        self.send_header("Content-Length", str(fs[6]))
-        self.send_header("Last-Modified", self.date_time_string(fs.st_mtime))
+        self.send_response(200)
+        self.send_header('Content-type', 'text/html; charset=utf-8')
+        self.send_header('Content-Length', str(fs[6]))
+        self.send_header('Last-Modified', self.date_time_string(fs.st_mtime))
         self.end_headers()
-        return f
+        return converted_f
+
+    # get markdown theme content
+    def getcss(self, theme="markdown"):
+        css_path = os.path.join(sublime.packages_path(), 'SublimeServer', theme + ".css")
+        return open(css_path, 'r').read().decode('utf-8')
 
     # Maybe we can using template
     def list_directory(self, path):
