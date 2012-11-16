@@ -1,5 +1,5 @@
 # coding: utf-8
-__version__ = "0.2.1_1"
+__version__ = "0.2.1.1"
 
 # SublimeServer Settings
 settings = None
