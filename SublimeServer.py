@@ -174,7 +174,7 @@ class SublimeServer(BaseHTTPServer.BaseHTTPRequestHandler):
             mdcontent = mdcontent + line
 
         try:
-            mdhtml = markdown2.markdown(mdcontent)
+            mdhtml = markdown2.markdown(mdcontent, extras=['footnotes', 'toc', 'fenced-code-blocks', 'cuddled-lists', 'code-friendly'])
             styles = self.getcss(theme='markdown')
         except Exception, (value, message):
             sublime.message_dialog(message)
@@ -191,11 +191,6 @@ class SublimeServer(BaseHTTPServer.BaseHTTPRequestHandler):
             <body>%s</body>
         </html>
         """ % (name, styles, mdhtml)
-        
-        new_view = self.view.window().new_file()
-        new_edit = new_view.begin_edit()
-        new_view.insert(new_edit, 0, html_contents)
-        new_view.end_edit(new_edit)
 
         converted_f = StringIO()
         converted_f.write(html.encode('utf8'))
@@ -204,7 +199,7 @@ class SublimeServer(BaseHTTPServer.BaseHTTPRequestHandler):
         fs = os.fstat(f.fileno())
         self.send_response(200)
         self.send_header('Content-type', 'text/html; charset=utf-8')
-        self.send_header('Content-Length', str(fs[6]))
+        # self.send_header('Content-Length', str(fs[6]))
         self.send_header('Last-Modified', self.date_time_string(fs.st_mtime))
         self.end_headers()
         return converted_f
